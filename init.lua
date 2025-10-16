@@ -76,7 +76,7 @@ lazy.plugins = {
   { 'folke/which-key.nvim' },
   { 'neovim/nvim-lspconfig' },
   { 'nvim-mini/mini.nvim',             branch = 'main' },
-  { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate',                                               branch = 'main' },
+  { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate',                                                 branch = 'main' },
   { 'NeogitOrg/neogit',                dependencies = { 'nvim-lua/plenary.nvim', 'sindrets/diffview.nvim' } },
   {
     'stevearc/oil.nvim',
@@ -88,6 +88,10 @@ lazy.plugins = {
     -- dependencies = { "nvim-tree/nvim-web-devicons" }, -- use if you prefer nvim-web-devicons
     -- Lazy loading is not recommended because it is very tricky to make it work correctly in all situations.
     lazy = false,
+  },
+  {
+    "mason-org/mason.nvim",
+    opts = {}
   }
 }
 
@@ -455,6 +459,16 @@ require("oil").setup({
   },
 })
 
+-- Mason
+require("mason").setup({
+  ui = {
+    icons = {
+      package_installed = "✓",
+      package_pending = "➜",
+      package_uninstalled = "✗"
+    }
+  }
+})
 
 -- Neogit keymaps
 vim.keymap.set('n', '<leader>gg', '<cmd>Neogit<cr>', { desc = 'Open Neogit' })
@@ -477,11 +491,38 @@ vim.api.nvim_create_autocmd('LspAttach', {
     vim.keymap.set('n', 'gO', '<cmd>lua vim.lsp.buf.document_symbol()<cr>', opts)
     vim.keymap.set({ 'i', 's' }, '<C-s>', '<cmd>lua vim.lsp.buf.signature_help()<cr>', opts)
 
+    -- Autocompletion
+    local client = assert(vim.lsp.get_client_by_id(event.data.client_id))
+    -- Enable auto-completion. Note: Use CTRL-Y to select an item. |complete_CTRL-Y|
+    if client:supports_method('textDocument/completion') then
+      -- Optional: trigger autocompletion on EVERY keypress. May be slow!
+      -- local chars = {}; for i = 32, 126 do table.insert(chars, string.char(i)) end
+      -- client.server_capabilities.completionProvider.triggerCharacters = chars
+      vim.lsp.completion.enable(true, client.id, event.buf, { autotrigger = true })
+    end
+    -- Auto-format ("lint") on save.
+    -- Usually not needed if server supports "textDocument/willSaveWaitUntil".
+    if not client:supports_method('textDocument/willSaveWaitUntil')
+        and client:supports_method('textDocument/formatting') then
+      vim.api.nvim_create_autocmd('BufWritePre', {
+        group = vim.api.nvim_create_augroup('my.lsp', { clear = false }),
+        buffer = event.buf,
+        callback = function()
+          vim.lsp.buf.format({ bufnr = event.buf, id = client.id, timeout_ms = 1000 })
+        end,
+      })
+    end
+
     -- These are custom keymaps
     vim.keymap.set('n', 'K', '<cmd>lua vim.lsp.buf.hover()<cr>', opts)
     vim.keymap.set('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<cr>', opts)
     vim.keymap.set('n', 'grt', '<cmd>lua vim.lsp.buf.type_definition()<cr>', opts)
     vim.keymap.set('n', 'grd', '<cmd>lua vim.lsp.buf.declaration()<cr>', opts)
+
+    -- Diagnostics to open the error.
+    vim.keymap.set('n', 'gl', '<cmd>lua vim.diagnostic.open_float()<cr>', opts)
+    vim.keymap.set('n', 'ga', '<cmd>lua vim.lsp.buf.code_action()<cr>', opts)
+
     vim.keymap.set({ 'n', 'x' }, 'gq', '<cmd>lua vim.lsp.buf.format({async = true})<cr>', opts)
   end,
 })
@@ -491,3 +532,8 @@ vim.keymap.set({ "n", "v" }, "<leader>y", '"+y', { desc = "copy to clipboard" })
 
 -- Oil Keymaps
 vim.keymap.set("n", "<leader>o", ":Oil<cr>", { noremap = true })
+
+-- ========================================================================== --
+-- ==                         LSP CONFIGURATION                            == --
+-- ========================================================================== --
+vim.lsp.enable({ 'ts_ls', 'gopls' })
