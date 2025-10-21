@@ -536,4 +536,4 @@ vim.keymap.set("n", "<leader>o", ":Oil<cr>", { noremap = true })
 -- ========================================================================== --
 -- ==                         LSP CONFIGURATION                            == --
 -- ========================================================================== --
-vim.lsp.enable({ 'ts_ls', 'gopls' })
+vim.lsp.enable({ 'ts_ls', 'gopls', 'pyright', 'clangd' })
